@@ -40,6 +40,14 @@ type VivoPush struct {
 	Auth_token string
 }
 
+
+var (
+	client = &http.Client{
+		Timeout : time.Second * 60,
+	}
+)
+
+
 func NewClient(appId, appKey, appSecret string) (*VivoPush, error) {
 	vc := &VivoClient{
 		appId,
@@ -78,9 +86,10 @@ func (vc *VivoClient) GetToken() (string, error) {
 	if err != nil {
 		return "", err
 	}
+
+
 	req, err := http.NewRequest("POST", ProductionHost+AuthURL, bytes.NewReader(formData))
 	req.Header.Set("Content-Type", "application/json")
-	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", err
@@ -92,10 +101,13 @@ func (vc *VivoClient) GetToken() (string, error) {
 	if resp.StatusCode != http.StatusOK {
 		return "", errors.New("network error")
 	}
+
+
 	js, err := simplejson.NewJson(result)
 	if err != nil {
 		return "", err
 	}
+
 	token, err := js.Get("authToken").String()
 	if err != nil {
 		return "", err
@@ -157,6 +169,7 @@ func (v *VivoPush) SendList(msg *MessagePayload, regIds []string) (*SendResult, 
 	if err != nil {
 		return nil, err
 	}
+
 	//推送
 	res2, err := v.doPost(v.host+PushToListURL, bytes)
 	if err != nil {
@@ -168,7 +181,7 @@ func (v *VivoPush) SendList(msg *MessagePayload, regIds []string) (*SendResult, 
 		return nil, err
 	}
 	if result.Result != 0 {
-		return nil, errors.New(result.Desc)
+		return &result, errors.New(result.Desc)
 	}
 	return &result, nil
 }
@@ -220,8 +233,9 @@ func (v *VivoPush) assembleStatusByJobKeyParams(jobKey string) string {
 
 func handleResponse(response *http.Response) ([]byte, error) {
 	defer func() {
-		_ = response.Body.Close()
+		response.Body.Close()
 	}()
+
 	data, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		return nil, err
@@ -238,7 +252,7 @@ func (v *VivoPush) doPost(url string, formData []byte) ([]byte, error) {
 	req, err = http.NewRequest("POST", url, bytes.NewReader(formData))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("authToken", v.Auth_token)
-	client := &http.Client{}
+
 	tryTime := 0
 tryAgain:
 	resp, err = client.Do(req)
@@ -268,7 +282,6 @@ func (v *VivoPush) doGet(url string, params string) ([]byte, error) {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("authToken", v.Auth_token)
 
-	client := &http.Client{}
 	resp, err = client.Do(req)
 	if err != nil {
 		return nil, err

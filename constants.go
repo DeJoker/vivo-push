@@ -14,6 +14,6 @@ const (
 )
 
 var (
-	PostRetryTimes       = 3         //重试次数
-	MaxTimeToLive  int64 = 3600 * 24 //消息保留时长
+	PostRetryTimes       = 2         //重试次数
+	DefaultTimeToLive  int64 = 3600 * 24 //消息保留时长
 )

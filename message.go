@@ -13,12 +13,12 @@ type Message struct {
 	NotifyType      int               `json:"notifyType"`      // 通知类型 1:无，2:响铃，3:振动，4:响铃和振动
 	Title           string            `json:"title"`           // 通知标题
 	Content         string            `json:"content"`         // 通知内容
-	TimeToLive      int64             `json:"timeToLive"`      // 可选项。消息保留时长 单位：秒，取值至少60秒，最长7天。当值为空时，默认一天 86400
+	TimeToLive      int64             `json:"timeToLive,omitempty"`      // 可选项。消息保留时长 单位：秒，取值至少60秒，最长7天。当值为空时，默认一天 86400
 	SkipType        int               `json:"skipType"`        // 点击跳转类型 1：打开 APP 首页 2：打开链接 3：自定义 4:打开 app 内指定页面
-	SkipContent     string            `json:"skipContent"`     // 可选项。跳转内容跳转类型为 2 时，跳转内容最大1000 个字符，跳转类型为 3 或 4 时，跳转内容最大 1024 个字符
-	NetworkType     int               `json:"networkType"`     // 可选项。网络方式 -1：不限，1：wifi 下发送，不填默认为-1
-	ClientCustomMap map[string]string `json:"clientCustomMap"` // 可选项。客户端自定义键值对自定义key和Value键值对个数不能超过 10 个，且长度不能超过1024 字符, key 和 Value 键值对总长度不能超过 1024 字符。
-	Extra           map[string]string `json:"extra"`           // 可选项。高级特性
+	SkipContent     string            `json:"skipContent,omitempty"`     // 可选项。跳转内容跳转类型为 2 时，跳转内容最大1000 个字符，跳转类型为 3 或 4 时，跳转内容最大 1024 个字符
+	NetworkType     int               `json:"networkType,omitempty"`     // 可选项。网络方式 -1：不限，1：wifi 下发送，不填默认为-1
+	ClientExtra     map[string]string `json:"clientCustomMap,omitempty"` // 可选项。客户端自定义键值对自定义key和Value键值对个数不能超过 10 个，且长度不能超过1024 字符, key 和 Value 键值对总长度不能超过 1024 字符。
+	AdvanceFtr      map[string]string `json:"extra,omitempty"`           // 可选项。高级特性
 	RequestId       string            `json:"requestId"`       // 用户请求唯一标识
 }
 
@@ -27,11 +27,11 @@ type MessagePayload struct {
 	Title           string            `json:"title"`           // 通知标题
 	Content         string            `json:"content"`         // 通知内容
 	NotifyType      int               `json:"notifyType"`      // 通知类型 1:无，2:响铃，3:振动，4:响铃和振动
-	TimeToLive      int64             `json:"timeToLive"`      // 可选项。消息保留时长 单位：秒，取值至少60秒，最长7天。当值为空时，默认一天 86400
+	TimeToLive      int64             `json:"timeToLive,omitempty"`      // 可选项。消息保留时长 单位：秒，取值至少60秒，最长7天。当值为空时，默认一天 86400
 	SkipType        int               `json:"skipType"`        // 点击跳转类型 1：打开 APP 首页 2：打开链接 3：自定义 4:打开 app 内指定页面
-	SkipContent     string            `json:"skipContent"`     // 可选项。跳转内容跳转类型为 2 时，跳转内容最大1000 个字符，跳转类型为 3 或 4 时，跳转内容最大 1024 个字符
-	NetworkType     int               `json:"networkType"`     // 可选项。网络方式 -1：不限，1：wifi 下发送，不填默认为-1
-	ClientCustomMap map[string]string `json:"clientCustomMap"` // 可选项。客户端自定义键值对自定义key和Value键值对个数不能超过 10 个，且长度不能超过1024 字符, key 和 Value 键值对总长度不能超过 1024 字符。
+	SkipContent     string            `json:"skipContent,omitempty"`     // 可选项。跳转内容跳转类型为 2 时，跳转内容最大1000 个字符，跳转类型为 3 或 4 时，跳转内容最大 1024 个字符
+	NetworkType     int               `json:"networkType,omitempty"`     // 可选项。网络方式 -1：不限，1：wifi 下发送，不填默认为-1
+	ClientCustomMap map[string]string `json:"clientCustomMap,omitempty"` // 可选项。客户端自定义键值对自定义key和Value键值对个数不能超过 10 个，且长度不能超过1024 字符, key 和 Value 键值对总长度不能超过 1024 字符。
 	RequestId       string            `json:"requestId"`       // 用户请求唯一标识
 }
 
@@ -48,13 +48,13 @@ func (m *Message) SetNotifyType(notifyType int) *Message {
 }
 
 // 添加自定义字段, 客户端使用
-func (m *Message) AddExtra(key, value string) *Message {
-	m.Extra[key] = value
+func (m *Message) AddAdvancedFeatures(key, value string) *Message {
+	m.AdvanceFtr[key] = value
 	return m
 }
 
-func (m *Message) AddCustomMap(key, value string) *Message {
-	m.ClientCustomMap[key] = value
+func (m *Message) AddCustomExtra(key, value string) *Message {
+	m.ClientExtra[key] = value
 	return m
 }
 
@@ -81,23 +81,27 @@ func NewVivoMessage(title, content string) *Message {
 		NotifyType:      2,
 		Title:           title,
 		Content:         content,
-		TimeToLive:      MaxTimeToLive,
+		TimeToLive:      DefaultTimeToLive,
 		SkipType:        1,
 		SkipContent:     "",
 		NetworkType:     -1,
-		ClientCustomMap: make(map[string]string),
-		Extra:           make(map[string]string),
+		ClientExtra:     make(map[string]string),
+		AdvanceFtr:      make(map[string]string),
 		RequestId:       strings.ToUpper(gouuid.Must(gouuid.NewV4()).String()),
 	}
 }
 
 // 保存群推消息
 func NewListPayloadMessage(title, content string) *MessagePayload {
+	return newListPayloadMessage(title, content, strings.ToUpper(gouuid.Must(gouuid.NewV4()).String()))
+}
+
+func newListPayloadMessage(title, content, requestId string) *MessagePayload {
 	return &MessagePayload{
 		Title:           title,
 		Content:         content,
 		NotifyType:      2,
-		TimeToLive:      MaxTimeToLive,
+		TimeToLive:      DefaultTimeToLive,
 		SkipType:        1,
 		SkipContent:     "",
 		NetworkType:     -1,
