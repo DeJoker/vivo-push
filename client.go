@@ -6,13 +6,12 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strconv"
 	"time"
-
-	"github.com/bitly/go-simplejson"
 )
 
 var authToken *AuthToken = new(AuthToken)
@@ -94,27 +93,26 @@ func (vc *VivoClient) GetToken() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	result, err := handleResponse(resp)
+	res, err := handleResponse(resp)
 	if err != nil {
 		return "", err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return "", errors.New("network error")
+		return "", errors.New("HTTP status code:"+strconv.Itoa(resp.StatusCode))
 	}
-
-
-	js, err := simplejson.NewJson(result)
+	
+	var result TokenResult
+	err = json.Unmarshal(res, &result)
 	if err != nil {
 		return "", err
 	}
-
-	token, err := js.Get("authToken").String()
-	if err != nil {
-		return "", err
+	if result.Result != 0 {
+		return "", errors.New(fmt.Sprintf("%+v", result))
 	}
-	authToken.token = token
+
+	authToken.token = result.AuthToken
 	authToken.valid_time = now + 3600000 //1小时有效
-	return token, nil
+	return result.AuthToken, nil
 }
 
 //----------------------------------------Sender----------------------------------------//
@@ -131,7 +129,7 @@ func (v *VivoPush) Send(msg *Message, regID string) (*SendResult, error) {
 		return nil, err
 	}
 	if result.Result != 0 {
-		return nil, errors.New(result.Desc)
+		return nil, errors.New(fmt.Sprintf("%+v", result))
 	}
 	return &result, nil
 }
@@ -148,7 +146,7 @@ func (v *VivoPush) SaveListPayload(msg *MessagePayload) (*SendResult, error) {
 		return nil, err
 	}
 	if result.Result != 0 {
-		return nil, errors.New(result.Desc)
+		return nil, errors.New(fmt.Sprintf("%+v", result))
 	}
 	return &result, nil
 }
@@ -163,7 +161,7 @@ func (v *VivoPush) SendList(msg *MessagePayload, regIds []string) (*SendResult, 
 		return nil, err
 	}
 	if res.Result != 0 {
-		return nil, errors.New(res.Desc)
+		return nil, errors.New(fmt.Sprintf("%+v", res))
 	}
 	bytes, err := json.Marshal(NewListMessage(regIds, res.TaskId))
 	if err != nil {
@@ -181,7 +179,7 @@ func (v *VivoPush) SendList(msg *MessagePayload, regIds []string) (*SendResult, 
 		return nil, err
 	}
 	if result.Result != 0 {
-		return &result, errors.New(result.Desc)
+		return &result, errors.New(fmt.Sprintf("%+v", result))
 	}
 	return &result, nil
 }
@@ -198,7 +196,7 @@ func (v *VivoPush) SendAll(msg *MessagePayload) (*SendResult, error) {
 		return nil, err
 	}
 	if result.Result != 0 {
-		return nil, errors.New(result.Desc)
+		return nil, errors.New(fmt.Sprintf("%+v", result))
 	}
 	return &result, nil
 }
@@ -268,7 +266,7 @@ tryAgain:
 		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, errors.New("network error")
+		return nil, errors.New("HTTP status code:"+strconv.Itoa(resp.StatusCode))
 	}
 	return result, nil
 }

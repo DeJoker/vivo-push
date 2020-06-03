@@ -5,6 +5,11 @@ type ResultItem struct {
 	Desc   string `json:"desc"`
 }
 
+type TokenResult struct {
+	ResultItem
+	AuthToken string `json:"authToken"`
+}
+
 type SendResult struct {
 	ResultItem
 	TaskId string `json:"taskId"`
