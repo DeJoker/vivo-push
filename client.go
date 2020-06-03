@@ -100,14 +100,14 @@ func (vc *VivoClient) GetToken() (string, error) {
 	if resp.StatusCode != http.StatusOK {
 		return "", errors.New("HTTP status code:"+strconv.Itoa(resp.StatusCode))
 	}
-	
+
 	var result TokenResult
 	err = json.Unmarshal(res, &result)
 	if err != nil {
 		return "", err
 	}
 	if result.Result != 0 {
-		return "", errors.New(fmt.Sprintf("%+v", result))
+		return "", errors.New(fmt.Sprintf("%s", res))
 	}
 
 	authToken.token = result.AuthToken
@@ -129,7 +129,7 @@ func (v *VivoPush) Send(msg *Message, regID string) (*SendResult, error) {
 		return nil, err
 	}
 	if result.Result != 0 {
-		return nil, errors.New(fmt.Sprintf("%+v", result))
+		return &result, errors.New(fmt.Sprintf("%s", res))
 	}
 	return &result, nil
 }
@@ -146,7 +146,7 @@ func (v *VivoPush) SaveListPayload(msg *MessagePayload) (*SendResult, error) {
 		return nil, err
 	}
 	if result.Result != 0 {
-		return nil, errors.New(fmt.Sprintf("%+v", result))
+		return &result, errors.New(fmt.Sprintf("%s", res))
 	}
 	return &result, nil
 }
@@ -156,47 +156,45 @@ func (v *VivoPush) SendList(msg *MessagePayload, regIds []string) (*SendResult, 
 	if len(regIds) < 2 || len(regIds) > 1000 {
 		return nil, errors.New("regIds个数必须大于等于2,小于等于 1000")
 	}
-	res, err := v.SaveListPayload(msg)
+	saveResult, err := v.SaveListPayload(msg)
 	if err != nil {
 		return nil, err
 	}
-	if res.Result != 0 {
-		return nil, errors.New(fmt.Sprintf("%+v", res))
-	}
-	bytes, err := json.Marshal(NewListMessage(regIds, res.TaskId))
+	// save中已经判断过saveResult的code了
+	bytes, err := json.Marshal(NewListMessage(regIds, saveResult.TaskId))
 	if err != nil {
 		return nil, err
 	}
 
 	//推送
-	res2, err := v.doPost(v.host+PushToListURL, bytes)
+	pushRes, err := v.doPost(v.host+PushToListURL, bytes)
 	if err != nil {
 		return nil, err
 	}
 	var result SendResult
-	err = json.Unmarshal(res2, &result)
+	err = json.Unmarshal(pushRes, &result)
 	if err != nil {
 		return nil, err
 	}
 	if result.Result != 0 {
-		return &result, errors.New(fmt.Sprintf("%+v", result))
+		return &result, errors.New(fmt.Sprintf("%s", pushRes))
 	}
 	return &result, nil
 }
 
 // 全量推送
 func (v *VivoPush) SendAll(msg *MessagePayload) (*SendResult, error) {
-	res2, err := v.doPost(v.host+PushToAllURL, msg.JSON())
+	res, err := v.doPost(v.host+PushToAllURL, msg.JSON())
 	if err != nil {
 		return nil, err
 	}
 	var result SendResult
-	err = json.Unmarshal(res2, &result)
+	err = json.Unmarshal(res, &result)
 	if err != nil {
 		return nil, err
 	}
 	if result.Result != 0 {
-		return nil, errors.New(fmt.Sprintf("%+v", result))
+		return &result, errors.New(fmt.Sprintf("%s", res))
 	}
 	return &result, nil
 }
@@ -212,7 +210,7 @@ func (v *VivoPush) GetMessageStatusByJobKey(jobKey string) (*BatchStatusResult, 
 	var result BatchStatusResult
 	err = json.Unmarshal(res, &result)
 	if err != nil {
-		return nil, err
+		return &result, err
 	}
 	return &result, nil
 }

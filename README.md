@@ -1,7 +1,7 @@
 # vivo-push
 Vivo推送服务 Golang SDK
 
-full golang implementation of Vivo Push API (https://dev.vivo.com.cn/documentCenter/doc/155)
+full golang implementation of Vivo Push API (https://dev.vivo.com.cn/documentCenter/doc/362)
 
 ```Go
 import (
