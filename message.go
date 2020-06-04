@@ -76,7 +76,10 @@ func (m *MessagePayload) JSON() []byte {
 
 //-----------------------------------------------------------------------------------//
 // 发送给设备的Message对象
-func NewVivoMessage(title, content string) *Message {
+func NewVivoMessage(title, content, requestId string) *Message {
+	if requestId == "" {
+		requestId = strings.ToUpper(gouuid.Must(gouuid.NewV4()).String())
+	}
 	return &Message{
 		NotifyType:      2,
 		Title:           title,
@@ -92,11 +95,10 @@ func NewVivoMessage(title, content string) *Message {
 }
 
 // 保存群推消息
-func NewListPayloadMessage(title, content string) *MessagePayload {
-	return newListPayloadMessage(title, content, strings.ToUpper(gouuid.Must(gouuid.NewV4()).String()))
-}
-
-func newListPayloadMessage(title, content, requestId string) *MessagePayload {
+func NewListPayloadMessage(title, content, requestId string) *MessagePayload {
+	if requestId == "" {
+		requestId = strings.ToUpper(gouuid.Must(gouuid.NewV4()).String())
+	}
 	return &MessagePayload{
 		Title:           title,
 		Content:         content,
@@ -106,7 +108,7 @@ func newListPayloadMessage(title, content, requestId string) *MessagePayload {
 		SkipContent:     "",
 		NetworkType:     -1,
 		ClientCustomMap: make(map[string]string),
-		RequestId:       strings.ToUpper(gouuid.Must(gouuid.NewV4()).String()),
+		RequestId:       requestId,
 	}
 }
 

@@ -14,30 +14,25 @@ import (
 	"time"
 )
 
-var authToken *AuthToken = new(AuthToken)
+type AuthInfo struct {
+	token      string
+	validTime  int64
+}
 
 type VivoClient struct {
 	AppId     string
 	AppKey    string
 	AppSecret string
+	AuthToken AuthInfo
 }
 
-type VivoTokenPar struct {
+type AuthTokenReq struct {
 	AppId     string `json:"appId"`
 	AppKey    string `json:"appKey"`
 	Timestamp int64  `json:"timestamp"`
 	Sign      string `json:"sign"`
 }
 
-type AuthToken struct {
-	token      string
-	valid_time int64
-}
-
-type VivoPush struct {
-	host       string
-	Auth_token string
-}
 
 
 var (
@@ -47,79 +42,79 @@ var (
 )
 
 
-func NewClient(appId, appKey, appSecret string) (*VivoPush, error) {
+func NewClient(appId, appKey, appSecret string) (*VivoClient, error) {
 	vc := &VivoClient{
 		appId,
 		appKey,
 		appSecret,
+		AuthInfo{},
 	}
-	token, err := vc.GetToken()
+
+	_, err := vc.GetToken()
 	if err != nil {
 		return nil, err
 	}
-	return &VivoPush{
-		host:       ProductionHost,
-		Auth_token: token,
-	}, nil
+	return vc, nil
 }
+
+const (
+	OneHour = 3600 * 1000
+)
 
 //----------------------------------------Token----------------------------------------//
 //获取token  返回的expiretime 秒  当过期的时候
-func (vc *VivoClient) GetToken() (string, error) {
-	now := time.Now().UnixNano() / 1e6
-	if authToken != nil {
-		if authToken.valid_time > now {
-			return authToken.token, nil
-		}
+func (vc *VivoClient) GetToken() (AuthInfo, error) {
+	now := time.Now().UnixNano() / int64(time.Millisecond)
+	if vc.AuthToken.token != "" && vc.AuthToken.validTime>now {
+		return vc.AuthToken, nil
 	}
 	md5Ctx := md5.New()
 	md5Ctx.Write([]byte(vc.AppId + vc.AppKey + strconv.FormatInt(now, 10) + vc.AppSecret))
 	sign := hex.EncodeToString(md5Ctx.Sum(nil))
 
-	formData, err := json.Marshal(&VivoTokenPar{
+	formData, err := json.Marshal(&AuthTokenReq{
 		AppId:     vc.AppId,
 		AppKey:    vc.AppKey,
 		Timestamp: now,
 		Sign:      sign,
 	})
 	if err != nil {
-		return "", err
+		return AuthInfo{}, err
 	}
-
 
 	req, err := http.NewRequest("POST", ProductionHost+AuthURL, bytes.NewReader(formData))
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := client.Do(req)
 	if err != nil {
-		return "", err
+		return AuthInfo{}, err
 	}
 	res, err := handleResponse(resp)
 	if err != nil {
-		return "", err
+		return AuthInfo{}, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return "", errors.New("HTTP status code:"+strconv.Itoa(resp.StatusCode))
+		return AuthInfo{}, errors.New("HTTP status code:"+strconv.Itoa(resp.StatusCode))
 	}
 
 	var result TokenResult
 	err = json.Unmarshal(res, &result)
 	if err != nil {
-		return "", err
+		return AuthInfo{}, err
 	}
 	if result.Result != 0 {
-		return "", errors.New(fmt.Sprintf("%s", res))
+		return AuthInfo{}, errors.New(fmt.Sprintf("%s", res))
 	}
 
-	authToken.token = result.AuthToken
-	authToken.valid_time = now + 3600000 //1小时有效
-	return result.AuthToken, nil
+	vc.AuthToken.token = result.AuthToken
+	vc.AuthToken.validTime = now + OneHour
+	return vc.AuthToken, nil
 }
 
 //----------------------------------------Sender----------------------------------------//
 // 根据regID，发送消息到指定设备上
-func (v *VivoPush) Send(msg *Message, regID string) (*SendResult, error) {
-	params := v.assembleSendParams(msg, regID)
-	res, err := v.doPost(v.host+SendURL, params)
+func (vc *VivoClient) Send(msg *Message, regID string) (*SendResult, error) {
+	params := vc.assembleSendParams(msg, regID)
+	res, err := vc.doPost(ProductionHost+SendURL, params)
 	if err != nil {
 		return nil, err
 	}
@@ -135,8 +130,8 @@ func (v *VivoPush) Send(msg *Message, regID string) (*SendResult, error) {
 }
 
 // 保存群推消息公共体接口
-func (v *VivoPush) SaveListPayload(msg *MessagePayload) (*SendResult, error) {
-	res, err := v.doPost(v.host+SaveListPayloadURL, msg.JSON())
+func (vc *VivoClient) SaveListPayload(msg *MessagePayload) (*SendResult, error) {
+	res, err := vc.doPost(ProductionHost+SaveListPayloadURL, msg.JSON())
 	if err != nil {
 		return nil, err
 	}
@@ -152,11 +147,11 @@ func (v *VivoPush) SaveListPayload(msg *MessagePayload) (*SendResult, error) {
 }
 
 // 群推
-func (v *VivoPush) SendList(msg *MessagePayload, regIds []string) (*SendResult, error) {
+func (vc *VivoClient) SendList(msg *MessagePayload, regIds []string) (*SendResult, error) {
 	if len(regIds) < 2 || len(regIds) > 1000 {
 		return nil, errors.New("regIds个数必须大于等于2,小于等于 1000")
 	}
-	saveResult, err := v.SaveListPayload(msg)
+	saveResult, err := vc.SaveListPayload(msg)
 	if err != nil {
 		return nil, err
 	}
@@ -167,7 +162,7 @@ func (v *VivoPush) SendList(msg *MessagePayload, regIds []string) (*SendResult, 
 	}
 
 	//推送
-	pushRes, err := v.doPost(v.host+PushToListURL, bytes)
+	pushRes, err := vc.doPost(ProductionHost+PushToListURL, bytes)
 	if err != nil {
 		return nil, err
 	}
@@ -183,8 +178,8 @@ func (v *VivoPush) SendList(msg *MessagePayload, regIds []string) (*SendResult, 
 }
 
 // 全量推送
-func (v *VivoPush) SendAll(msg *MessagePayload) (*SendResult, error) {
-	res, err := v.doPost(v.host+PushToAllURL, msg.JSON())
+func (vc *VivoClient) SendAll(msg *MessagePayload) (*SendResult, error) {
+	res, err := vc.doPost(ProductionHost+PushToAllURL, msg.JSON())
 	if err != nil {
 		return nil, err
 	}
@@ -201,9 +196,9 @@ func (v *VivoPush) SendAll(msg *MessagePayload) (*SendResult, error) {
 
 //----------------------------------------Tracer----------------------------------------//
 // 获取指定消息的状态。
-func (v *VivoPush) GetMessageStatusByJobKey(jobKey string) (*BatchStatusResult, error) {
-	params := v.assembleStatusByJobKeyParams(jobKey)
-	res, err := v.doGet(v.host+MessagesStatusURL, params)
+func (vc *VivoClient) GetMessageStatusByJobKey(jobKey string) (*BatchStatusResult, error) {
+	params := vc.assembleStatusByJobKeyParams(jobKey)
+	res, err := vc.doGet(ProductionHost+MessagesStatusURL, params)
 	if err != nil {
 		return nil, err
 	}
@@ -215,17 +210,26 @@ func (v *VivoPush) GetMessageStatusByJobKey(jobKey string) (*BatchStatusResult, 
 	return &result, nil
 }
 
-func (v *VivoPush) assembleSendParams(msg *Message, regID string) []byte {
+func (vc *VivoClient) assembleSendParams(msg *Message, regID string) []byte {
 	msg.RegId = regID
 	jsondata := msg.JSON()
 	return jsondata
 }
 
-func (v *VivoPush) assembleStatusByJobKeyParams(jobKey string) string {
+func (vc *VivoClient) assembleStatusByJobKeyParams(jobKey string) string {
 	form := url.Values{}
 	form.Add("taskIds", jobKey)
 	return "?" + form.Encode()
 }
+
+
+
+
+
+
+// HTTP
+
+
 
 func handleResponse(response *http.Response) ([]byte, error) {
 	defer func() {
@@ -239,7 +243,7 @@ func handleResponse(response *http.Response) ([]byte, error) {
 	return data, nil
 }
 
-func (v *VivoPush) doPost(url string, formData []byte) ([]byte, error) {
+func (vc *VivoClient) doPost(url string, formData []byte) ([]byte, error) {
 	var result []byte
 	var req *http.Request
 	var resp *http.Response
@@ -247,7 +251,7 @@ func (v *VivoPush) doPost(url string, formData []byte) ([]byte, error) {
 
 	req, err = http.NewRequest("POST", url, bytes.NewReader(formData))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("authToken", v.Auth_token)
+	req.Header.Set("authToken", vc.AuthToken.token)
 
 	tryTime := 0
 tryAgain:
@@ -269,14 +273,14 @@ tryAgain:
 	return result, nil
 }
 
-func (v *VivoPush) doGet(url string, params string) ([]byte, error) {
+func (vc *VivoClient) doGet(url string, params string) ([]byte, error) {
 	var result []byte
 	var req *http.Request
 	var resp *http.Response
 	var err error
 	req, err = http.NewRequest("GET", url+params, nil)
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("authToken", v.Auth_token)
+	req.Header.Set("authToken", vc.AuthToken.token)
 
 	resp, err = client.Do(req)
 	if err != nil {
