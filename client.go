@@ -251,7 +251,11 @@ func (vc *VivoClient) doPost(url string, formData []byte) ([]byte, error) {
 
 	req, err = http.NewRequest("POST", url, bytes.NewReader(formData))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("authToken", vc.AuthToken.token)
+	authInfo, err := vc.GetToken()
+	if err != nil {
+		return result, err
+	}
+	req.Header.Set("authToken", authInfo.token)
 
 	tryTime := 0
 tryAgain:
