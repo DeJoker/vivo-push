@@ -123,9 +123,7 @@ func (vc *VivoClient) Send(msg *Message, regID string) (*SendResult, error) {
 	if err != nil {
 		return nil, err
 	}
-	if result.Result != 0 {
-		return &result, errors.New(fmt.Sprintf("%s", res))
-	}
+
 	return &result, nil
 }
 
