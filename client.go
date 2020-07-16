@@ -52,7 +52,7 @@ func NewClient(appId, appKey, appSecret string) (*VivoClient, error) {
 
 	_, err := vc.GetToken()
 	if err != nil {
-		return nil, err
+		return vc, err
 	}
 	return vc, nil
 }
