@@ -23,6 +23,8 @@ type MessageHeader struct {
 
 	NetworkType     int               `json:"networkType,omitempty"`     // 可选项。网络方式 -1：不限，1：wifi 下发送，不填默认为-1
 	Classcation     int               `json:"classification,omitempty"`    // 可选项  消息类型   1是系统消息  0是运营消息   默认为0
+
+	PushMode        int               `json:"pushMode,omitempty"`  // 推送模式 0：正式推送；1：测试推送，不填默认为0
 }
 
 //单推
@@ -153,6 +155,12 @@ func (m *Message) SetJumpCustom(value string) *Message {
 func (m *Message) SetJumpActivity(value string) *Message {
 	m.SkipType = 4
 	m.SkipContent = value
+	return m
+}
+
+
+func (m *Message) SetTestMode() *Message {
+	m.PushMode = 1
 	return m
 }
 
